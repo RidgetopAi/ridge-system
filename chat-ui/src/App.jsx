@@ -243,7 +243,7 @@ function ChatApp() {
     loadConversations();
   };
 
-  // Send message function - connects to your n8n webhook
+  // Send message function - connects to DeepSeek API
   const sendMessage = async (messageText, messageType = 'chat') => {
     if (!messageText.trim() && messageType === 'chat') return;
     if (!currentConversationId) await createNewConversation();
@@ -271,52 +271,58 @@ function ChatApp() {
       await updateConversationTitle(currentConversationId, title);
     }
 
-    // Prepare JSON payload with conversation history for n8n
-    const payload = {
-      message: messageText,
-      conversationHistory: messages.map(msg => ({
-        role: msg.sender === 'user' ? 'user' : 'assistant',
-        content: msg.text
-      })),
-      userId: user.id,
-      userEmail: user.email,
-      action: messageType,
-      timestamp: new Date().toISOString(),
-      conversationId: currentConversationId
-    };
+    // Prepare messages for DeepSeek API
+    const messagesForApi = messages.map(msg => ({
+      role: msg.sender === 'user' ? 'user' : 'assistant',
+      content: msg.text
+    }));
+
+    // Add the current user message to the API payload
+    messagesForApi.push({ role: 'user', content: messageText });
 
     try {
-      // Send to your n8n production webhook
-      const response = await fetch('http://localhost:5678/webhook/query', {
+      // Send to DeepSeek API
+      const response = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_DEEPSEEK_API_KEY}`
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          model: "deepseek-chat", // Or the specific DeepSeek model you want to use
+          messages: messagesForApi,
+          stream: false // Set to true for streaming responses
+        })
       });
-      
-      const aiResponse = await response.json();
-      
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`API error: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+      }
+
+      const data = await response.json();
+      const aiResponseContent = data.choices[0]?.message?.content || "Received an empty response from DeepSeek.";
+
       // Add AI response to chat
       const aiMessage = {
         id: Date.now() + 1,
-        text: aiResponse.message || "Got a response from n8n!",
+        text: aiResponseContent,
         sender: 'ai',
         timestamp: new Date(),
       };
-      
+
       setMessages(prev => [...prev, aiMessage]);
-      
+
       // Save AI message to database
       await saveMessage(aiMessage.text, 'ai');
-      
+
       setIsLoading(false);
 
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error sending message to DeepSeek:', error);
       const errorMessage = {
         id: Date.now() + 1,
-        text: "Sorry, I'm having trouble connecting right now. Please try again.",
+        text: `Sorry, I encountered an error communicating with the AI: ${error.message}`,
         sender: 'ai',
         timestamp: new Date(),
         isError: true
