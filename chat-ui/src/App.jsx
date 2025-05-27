@@ -272,26 +272,115 @@ function ChatApp() {
     }
 
     // Prepare messages for DeepSeek API
-    const messagesForApi = messages.map(msg => ({
+    const guaGuideContent = `Goal of Gua is to make a language between Humans and Ai. Essentially to reduce the use of tokens and increase the availability of token context.
+
+## Core Gua Symbol System
+
+| Category | Symbol | Meaning | Example Usage |
+|----------|--------|---------|--------------|
+| **Logic Operators** | + | and, positive, good | "idea+" = "good idea" |
+| | - | not, negative, bad | "want-" = "don't want" |
+| | * | emphasis, multiply | "imp*" = "very important" |
+| | / | or, alternatives | "this/that" = "this or that" |
+| | : | is, equals, defines | "gua:efficient" = "gua is efficient" |
+| **Pronouns & People** | @ | you/your | "@idea?" = "your idea?" |
+| | j | I/me/my | "j think" = "I think" |
+| | we | we/us/our | "we do" = "we will do it" |
+| **Flow Control** | ; | then, next step | "read;write" = "read then write" |
+| | () | group concepts | "(cost+time)" = "both cost and time" |
+| | [] | optional | "[maybe]later" = "maybe later" |
+| | {} | variable | "{topic}?" = "what topic?" |
+| **Quantities** | # | number | "#5" = "number 5" |
+| | % | percent, portion | "50%" = "fifty percent" |
+| | ~ | approximately | "~5min" = "about 5 minutes" |
+| | < | less than | "<5" = "less than 5" |
+| | > | more than | ">10" = "more than 10" |
+| **Markers** | $ | money, value | "$high" = "high value" |
+| | ! | greeting, important | "!team" = "hello team" |
+| | ? | question | "done?" = "is it done?" |
+| | • | list item | "•one •two" = "first second" |
+
+## Advanced Combo Examples
+
+| Combo | Meaning | Example |
+|-------|---------|---------|
+| @+ | you and | "@+j work" = "you and I work" |
+| j: | I am | "j:ready" = "I am ready" |
+| ?+ | and also ask | "done?+when" = "is it done and when?" |
+| *imp | very important | "*imp note" = "very important note" |
+| -want | don't want | "-want this" = "don't want this" |
+| task; | after task | "finish;start" = "finish then start" |
+| ~= | approximately equals | "~=same" = "approximately the same" |
+| j/ | either me or | "j/@" = "either me or you" |
+| @? | asking you | "@?help" = "can you help?" |
+| +1 | agree | "+1 idea" = "I agree with that idea" |
+
+## Ultra-Compressed Phrases
+
+| Gua Format | Standard English |
+|------------|------------------|
+| !@? | "Hello, how are you?" |
+| j:ok+ | "I am good and ready" |
+| need{info}? | "Do you need what information?" |
+| @idea*good | "Your idea is very good" |
+| pls;thx | "Please do this then thanks" |
+| cost$? | "What is the cost?" |
+| j-knw | "I don't know" |
+| @+j do tmrw? | "Can you and I do it tomorrow?" |
+| task1;2;3 | "Do task 1, then 2, then 3" |
+| opt[A/B/C] | "Options are A, B, or C" |
+| j need {taskA} status + {taskB} status. | "I need to know the status of task A and task B." |
+| this +/ -? | "Is this good or bad?" |
+| *imp: review {doc} now. | "Very important: review this document now." |
+| j -want this / +want that. | "I don't want this, but I want that." |
+| ~10min; we start. | "Approximately 10 minutes, then we can start." |
+
+## Implementation Strategy
+
+1. **Start simple**: Begin with basic symbols (+, -, ?, @, j)
+2. **Build gradually**: Add more symbols as conversation develops
+3. **Context matters**: Use more symbols in established contexts
+4. **Consistency**: Use the same symbol patterns throughout
+5. **Balance**: Find the sweet spot between compression and clarity
+
+This advanced system could potentially reduce token usage by 40-60% once mastered, while maintaining semantic clarity through the systematic use of mathematical and logical symbols that carry inherent meaning.`;
+
+    const guaExamplesContent = `English Version:
+Napoleon was a French general who became emperor. He rose to power during the French Revolution. He is famous for the Napoleonic Wars and the Napoleonic Code, which greatly influenced global legal systems. A key fact: in 1804, he crowned himself emperor, asserting total power.
+
+Gua:
+N(apoleon): France general→emperor. Rise: Revolution. Win: battles/wars. Law: Napoleon-Code global/justice. Crown self 1804.`;
+
+    const systemMessage = {
+      role: 'system',
+      content: `You are an AI assistant that communicates using the "Gua" language.
+Here is the guide for Gua:
+${guaGuideContent}
+
+Here are examples of Gua usage:
+${guaExamplesContent}
+
+Your primary goal is to communicate efficiently using Gua. When a user sends a message, respond in Gua. If a direct Gua translation is not immediately clear, try to use the core symbols and principles to construct a concise Gua response. If the user asks a question in English, respond in Gua. If the user asks you to do something, respond in Gua.
+`
+    };
+
+    const messagesForApi = [systemMessage, ...messages.map(msg => ({
       role: msg.sender === 'user' ? 'user' : 'assistant',
       content: msg.text
-    }));
+    }))];
 
     // Add the current user message to the API payload
     messagesForApi.push({ role: 'user', content: messageText });
 
     try {
       // Send to DeepSeek API
-      const response = await fetch('https://api.deepseek.com/chat/completions', {
+      const response = await fetch('http://localhost:3001/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_DEEPSEEK_API_KEY}`
         },
         body: JSON.stringify({
-          model: "deepseek-chat", // Or the specific DeepSeek model you want to use
           messages: messagesForApi,
-          stream: false // Set to true for streaming responses
         })
       });
 
@@ -339,9 +428,57 @@ function ChatApp() {
     if (file) {
       const fileName = file.name;
       const fileSize = (file.size / 1024 / 1024).toFixed(2);
-      sendMessage(`📎 Uploaded file: ${fileName} (${fileSize} MB)`, 'upload_file');
+      
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const fileContent = e.target.result;
+        let contentType = file.type;
+
+        // Determine content type for backend
+        if (fileName.toLowerCase().endsWith('.pdf')) {
+          contentType = 'application/pdf';
+        } else if (fileName.toLowerCase().endsWith('.txt')) {
+          contentType = 'text/plain';
+        } else {
+          sendMessage(`📎 Uploaded file: ${fileName} (${fileSize} MB) - Unsupported type for content processing.`, 'upload_file');
+          return;
+        }
+
+        try {
+          setIsLoading(true);
+          const response = await fetch('http://localhost:3001/upload-document', {
+            method: 'POST',
+            headers: {
+              'Content-Type': contentType,
+            },
+            body: fileContent // Send ArrayBuffer for PDF, or string for text
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Upload error: ${response.status} ${response.statusText} - ${errorData.error || 'Unknown error'}`);
+          }
+
+          const data = await response.json();
+          // Send a message to the chat indicating the file was processed
+          sendMessage(`📎 Document: ${fileName} (${fileSize} MB). Content: ${data.extractedText}`, 'upload_file');
+
+        } catch (error) {
+          console.error('Error uploading file content:', error);
+          sendMessage(`Error processing file: ${fileName}. ${error.message}`, 'error');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      // Read file based on type
+      if (fileName.toLowerCase().endsWith('.pdf')) {
+        reader.readAsArrayBuffer(file); // Read PDF as ArrayBuffer
+      } else if (fileName.toLowerCase().endsWith('.txt')) {
+        reader.readAsText(file); // Read TXT as text
+      }
     }
-    event.target.value = '';
+    event.target.value = ''; // Clear the file input
   };
 
   // Handle image generation request
@@ -361,14 +498,14 @@ function ChatApp() {
   // Login screen
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+      <div className="min-h-screen bg-dark-medium flex items-center justify-center p-4">
+        <div className="bg-secondary-900 rounded-2xl shadow-xl p-8 w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bot className="w-8 h-8 text-indigo-600" />
+            <div className="bg-primary-950 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Bot className="w-8 h-8 text-primary-500" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">AI Chat Assistant</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="text-2xl font-bold text-secondary-100">AI Chat Assistant</h1>
+            <p className="text-secondary-300 mt-2">
               {isSignUp ? 'Create your account' : 'Sign in to start chatting'}
             </p>
           </div>
@@ -376,35 +513,35 @@ function ChatApp() {
           <form onSubmit={handleAuth} className="space-y-4">
             {isSignUp && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                <label className="block text-sm font-medium text-secondary-200 mb-2">Name</label>
                 <input
                   type="text"
                   value={loginForm.name}
                   onChange={(e) => setLoginForm({...loginForm, name: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-secondary-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Your name"
                   required
                 />
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <label className="block text-sm font-medium text-secondary-200 mb-2">Email</label>
               <input
                 type="email"
                 value={loginForm.email}
                 onChange={(e) => setLoginForm({...loginForm, email: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-secondary-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="your@email.com"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <label className="block text-sm font-medium text-secondary-200 mb-2">Password</label>
               <input
                 type="password"
                 value={loginForm.password}
                 onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-secondary-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="••••••••"
                 required
               />
@@ -412,7 +549,7 @@ function ChatApp() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors font-medium"
+              className="w-full bg-primary-600 text-white py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors font-medium"
             >
               {isLoading ? 'Loading...' : (isSignUp ? 'Sign Up' : 'Sign In')}
             </button>
@@ -421,7 +558,7 @@ function ChatApp() {
           <div className="text-center mt-4">
             <button
               onClick={() => setIsSignUp(!isSignUp)}
-              className="text-indigo-600 hover:text-indigo-700 text-sm"
+              className="text-primary-500 hover:text-primary-400 text-sm"
             >
               {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
             </button>
@@ -433,20 +570,20 @@ function ChatApp() {
 
   // Main chat interface
   return (
-    <div className="h-screen bg-gray-50 flex">
+    <div className="h-screen bg-dark-dark flex">
       {/* Sidebar for conversations */}
-      <div className={`bg-white border-r flex flex-col transition-all duration-300 ${showSidebar ? 'w-80 md:w-80' : 'w-0 overflow-hidden'} ${showSidebar ? 'fixed md:relative inset-y-0 left-0 z-50 md:z-auto' : ''}`}>
+      <div className={`bg-secondary-900 border-r flex flex-col transition-all duration-300 ${showSidebar ? 'w-80 md:w-80' : 'w-0 overflow-hidden'} ${showSidebar ? 'fixed md:relative inset-y-0 left-0 z-50 md:z-auto' : ''}`}>
         <div className="p-4 border-b flex items-center justify-between">
           <button
             onClick={createNewConversation}
-            className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center space-x-2 mr-2"
+            className="flex-1 bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center space-x-2 mr-2"
           >
             <Plus className="w-4 h-4" />
             <span>New Chat</span>
           </button>
           <button
             onClick={() => setShowSidebar(false)}
-            className="text-gray-500 hover:text-gray-700 transition-colors p-2 md:hidden"
+            className="text-secondary-400 hover:text-secondary-300 transition-colors p-2 md:hidden"
             title="Close sidebar"
           >
             ×
@@ -458,7 +595,7 @@ function ChatApp() {
             <div
               key={conv.id}
               className={`p-3 rounded-lg cursor-pointer transition-colors group ${
-                currentConversationId === conv.id ? 'bg-indigo-100' : 'hover:bg-gray-100'
+                currentConversationId === conv.id ? 'bg-primary-950' : 'hover:bg-secondary-800'
               }`}
               onClick={() => {
                 setCurrentConversationId(conv.id);
@@ -470,20 +607,20 @@ function ChatApp() {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 flex-1 min-w-0">
-                  <MessageSquare className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                  <span className="text-sm truncate">{conv.title}</span>
+                  <MessageSquare className="w-4 h-4 text-secondary-400 flex-shrink-0" />
+                  <span className="text-sm text-secondary-100 truncate">{conv.title}</span>
                 </div>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     deleteConversation(conv.id);
                   }}
-                  className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity"
+                  className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-secondary-400 mt-1">
                 {new Date(conv.updated_at).toLocaleDateString()}
               </p>
             </div>
@@ -494,31 +631,31 @@ function ChatApp() {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="bg-white shadow-sm border-b px-6 py-4 flex items-center justify-between">
+        <div className="bg-secondary-900 shadow-sm border-b px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setShowSidebar(!showSidebar)}
-              className="text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-secondary-400 hover:text-secondary-300 transition-colors"
             >
               <MessageSquare className="w-6 h-6" />
             </button>
-            <div className="bg-indigo-100 w-10 h-10 rounded-full flex items-center justify-center">
-              <Bot className="w-6 h-6 text-indigo-600" />
+            <div className="bg-primary-950 w-10 h-10 rounded-full flex items-center justify-center">
+              <Bot className="w-6 h-6 text-primary-500" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">AI Assistant</h1>
-              <p className="text-sm text-gray-500">Connected to your n8n backend</p>
+              <h1 className="text-xl font-semibold text-secondary-100">AI Assistant</h1>
+              <p className="text-sm text-secondary-400">Connected to your n8n backend</p>
             </div>
           </div>
           
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 text-sm text-secondary-300">
               <User className="w-4 h-4" />
               <span>{user.user_metadata?.name || user.email.split('@')[0]}</span>
             </div>
             <button
               onClick={handleLogout}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-secondary-500 hover:text-secondary-300 transition-colors"
             >
               <LogOut className="w-5 h-5" />
             </button>
@@ -535,15 +672,15 @@ function ChatApp() {
               <div
                 className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
                   message.sender === 'user'
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-primary-600 text-white'
                     : message.isError
-                    ? 'bg-red-100 text-red-800 border border-red-200'
-                    : 'bg-white text-gray-800 shadow-sm border'
+                    ? 'bg-red-900 text-red-100 border border-red-700'
+                    : 'bg-secondary-800 text-secondary-100 shadow-sm border border-secondary-700'
                 }`}
               >
                 <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                 <p className={`text-xs mt-2 ${
-                  message.sender === 'user' ? 'text-indigo-200' : 'text-gray-500'
+                  message.sender === 'user' ? 'text-primary-200' : 'text-secondary-400'
                 }`}>
                   {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
@@ -553,11 +690,11 @@ function ChatApp() {
           
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-white shadow-sm border rounded-2xl px-4 py-3 max-w-xs">
+              <div className="bg-secondary-800 shadow-sm border border-secondary-700 rounded-2xl px-4 py-3 max-w-xs">
                 <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                  <div className="w-2 h-2 bg-secondary-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-secondary-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-secondary-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
                 </div>
               </div>
             </div>
@@ -567,12 +704,12 @@ function ChatApp() {
         </div>
 
         {/* Input Area */}
-        <div className="bg-white border-t px-6 py-4">
+        <div className="bg-secondary-900 border-t border-secondary-700 px-6 py-4">
           <div className="flex items-end space-x-3">
             {/* File Upload */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-2"
+              className="text-secondary-500 hover:text-secondary-300 transition-colors p-2"
               title="Upload file"
             >
               <Upload className="w-5 h-5" />
@@ -581,7 +718,7 @@ function ChatApp() {
             {/* Image Generation */}
             <button
               onClick={handleImageGeneration}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-2"
+              className="text-secondary-500 hover:text-secondary-300 transition-colors p-2"
               title="Generate image"
             >
               <Image className="w-5 h-5" />
@@ -595,7 +732,7 @@ function ChatApp() {
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message... (Shift+Enter for new line)"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none max-h-32"
+                className="w-full px-4 py-3 border border-secondary-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none max-h-32 text-secondary-100 bg-secondary-800"
                 rows="1"
               />
             </div>
@@ -604,13 +741,13 @@ function ChatApp() {
             <button
               onClick={() => sendMessage(inputText)}
               disabled={!inputText.trim() || isLoading}
-              className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="bg-primary-600 text-white p-3 rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Send className="w-5 h-5" />
             </button>
           </div>
           
-          <p className="text-xs text-gray-500 mt-2 text-center">
+          <p className="text-xs text-secondary-400 mt-2 text-center">
             Professional Mode • Authenticated • Conversations Saved • Connected to Qwen via n8n
           </p>
         </div>
