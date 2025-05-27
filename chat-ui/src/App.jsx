@@ -2,6 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Upload, Image, User, LogOut, Bot, Plus, MessageSquare, Trash2 } from 'lucide-react';
 import { supabase } from './supabase';
 
+console.log('ENV URL:', import.meta.env.VITE_SUPABASE_URL)
+console.log('ENV KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY)
+console.log('ENV KEY timestamp check:', import.meta.env.VITE_SUPABASE_ANON_KEY?.includes('1748356305'))
+
 function ChatApp() {
   // State management
   const [messages, setMessages] = useState([]);
