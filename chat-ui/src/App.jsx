@@ -643,8 +643,8 @@ Your primary goal is to communicate efficiently using Gua. When a user sends a m
               <Bot className="w-6 h-6 text-primary-500" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-secondary-100">AI Assistant</h1>
-              <p className="text-sm text-secondary-400">Connected to your n8n backend</p>
+              <h1 className="text-xl font-semibold text-secondary-100">Gua AI</h1>
+              
             </div>
           </div>
           
@@ -748,7 +748,6 @@ Your primary goal is to communicate efficiently using Gua. When a user sends a m
           </div>
           
           <p className="text-xs text-secondary-400 mt-2 text-center">
-            Professional Mode • Authenticated • Conversations Saved • Connected to Qwen via n8n
           </p>
         </div>
         
