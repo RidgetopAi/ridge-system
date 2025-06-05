@@ -2,10 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Upload, Image, User, LogOut, Bot, Plus, MessageSquare, Trash2 } from 'lucide-react';
 import { supabase } from './supabase';
 
-console.log('ENV URL:', import.meta.env.VITE_SUPABASE_URL)
-console.log('ENV KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY)
-console.log('ENV KEY timestamp check:', import.meta.env.VITE_SUPABASE_ANON_KEY?.includes('1748356305'))
-
 function ChatApp() {
   // State management
   const [messages, setMessages] = useState([]);
@@ -291,23 +287,25 @@ function ChatApp() {
 
     try {
       // Send to your n8n production webhook
-      const response = await fetch('http://192.168.0.174:5678/webhook/ridge-chat', {
+      const response = await fetch('http://192.168.0.174:5678/webhook/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        // Add timeout buffer for longer responses
+        signal: AbortSignal.timeout(60000) // 60 second timeout instead of default ~5 seconds
       });
       
       const aiResponse = await response.json();
-      
-      // Add AI response to chat
-      const aiMessage = {
-        id: Date.now() + 1,
-        text: aiResponse.message || "Got a response from n8n!",
-        sender: 'ai',
-        timestamp: new Date(),
-      };
+    
+    // Add AI response to chat
+    const aiMessage = {
+    id: Date.now() + 1,
+    text: aiResponse.message || "Got a response from n8n!",
+    sender: 'ai',
+    timestamp: new Date(),
+    };
       
       setMessages(prev => [...prev, aiMessage]);
       
